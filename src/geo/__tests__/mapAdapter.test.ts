@@ -33,5 +33,6 @@ describe('map provider adapter', () => {
     expect(tacticalLayerRole(style.layers[1])).toBe('building');
     expect(tacticalLayerRole(style.layers[2])).toBe('hidden');
     expect(tacticalLayerRole({ id: 'tree-markers', type: 'circle', source: 'vector' })).toBe('hidden');
+    expect(tacticalLayerRole({ id: 'osm-raster', type: 'raster', source: 'osm' })).toBe('ground');
   });
 });
