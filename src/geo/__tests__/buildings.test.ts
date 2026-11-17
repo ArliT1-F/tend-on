@@ -1,0 +1,2 @@
+import {describe,expect,it} from 'vitest'; import {buildingHeight,classifyBuilding} from '../buildings';
+describe('building metadata',()=>{it('classifies OSM tags with a generic fallback',()=>{expect(classifyBuilding({amenity:'hospital'})).toBe('hospital');expect(classifyBuilding({})).toBe('other')});it('distinguishes measured and estimated heights',()=>{expect(buildingHeight({height:18}).estimated).toBe(false);expect(buildingHeight({'building:levels':4}).height).toBeCloseTo(12.4)})});
