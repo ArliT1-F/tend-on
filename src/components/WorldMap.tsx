@@ -6,6 +6,7 @@ import { GAME_CONFIG } from '../config/game';
 import { developmentProvider } from '../geo/provider';
 import { fogMask, squareRegion } from '../geo/region';
 import { buildingHeight, classifyBuilding } from '../geo/buildings';
+import { addTacticalBuildingExtrusion } from '../geo/mapAdapter';
 import type { InspectedFeature } from '../types/geo';
 
 interface WorldMapProps {
@@ -78,6 +79,7 @@ export function WorldMap({ onInspect, onReady, onError }: WorldMapProps) {
       map.on('load', () => {
         loaded = true;
         clearTimers();
+        addTacticalBuildingExtrusion(map);
         installOperationalLayers(map, region);
         onReady();
       });

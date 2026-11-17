@@ -29,7 +29,9 @@ The repository began with only `Master-Prompt.md`. A React + TypeScript + Vite a
 - Provider abstraction: `src/geo/provider.ts`.
 - Region + inverse fog geometry: `src/geo/region.ts`.
 - OSM metadata classification and height estimation: `src/geo/buildings.ts`.
-- Unit tests: building metadata and region/fog geometry.
+- Provider-safe vector building layer discovery and tactical 2.5D extrusion: `src/geo/mapAdapter.ts`.
+- Geographic road graph construction and A* routing with one-way/blocked-edge support: `src/geo/roadGraph.ts`.
+- Unit tests: building metadata, provider adaptation, road graph/routing, and region/fog geometry.
 
 ## Verification
 
@@ -47,10 +49,9 @@ There is a build warning because MapLibre creates a large client chunk (~1.29 MB
 
 Phase 1 still needs:
 
-1. Verify the selected map provider's building source/layers and add explicit 2.5D extrusion if the style does not already provide it.
-2. Build an actual road graph from progressively loaded OSM-compatible data. Roads are currently rendered by the base style, not modeled for pathfinding.
-3. Add robust provider error/offline states and geographic cache boundaries.
-4. Add explicit building footprint retrieval, durable IDs, classification correction, and local caching. Current inspection reads rendered vector-tile features.
+1. Connect the road graph importer to progressively loaded provider road features. The graph and A* routing core are implemented and tested, but the live base-map road data is not imported yet.
+2. Add robust offline states and geographic cache boundaries. Provider fallback and retry exist, but no offline tile cache exists.
+3. Add explicit building footprint retrieval, durable IDs, classification correction, and local caching. Current inspection and 2.5D extrusion read rendered vector-tile features.
 5. Add map interaction tests and performance measurements on the reference Intel HD 4400 hardware.
 6. Replace web-loaded Google fonts with local/system assets for reliable offline play.
 7. Make fog/active cells data-driven rather than one static opening polygon before Phase 2.
@@ -60,12 +61,11 @@ Do not claim the entire Phase 1 deliverable complete until roads are represented
 
 ## Next recommended work order
 
-1. Inspect OpenFreeMap style/source metadata at runtime and create a provider adapter that reports source-layer names.
-2. Add building extrusion in a provider-safe way, with estimated-height fallback only in simulation metadata (avoid pretending estimates are measured).
-3. Introduce tiled geographic data loading and bounded IndexedDB cache.
-4. Build road-node/edge types, importer, and tests; then expose a debug road-graph overlay.
-5. Add deterministic campaign seed and versioned campaign schema before autonomous entities.
-6. Begin Phase 2 only after Phase 1 acceptance checks are reproducible.
+1. Connect provider road source layers to the tested road-graph importer and expose a debug graph overlay/count.
+2. Introduce tiled geographic data loading and a bounded IndexedDB cache.
+3. Add deterministic campaign seed and versioned campaign schema before autonomous entities.
+4. Benchmark building extrusion and graph construction on the reference hardware.
+5. Begin Phase 2 only after Phase 1 acceptance checks are reproducible.
 
 ## Non-negotiables to preserve
 
