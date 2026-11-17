@@ -25,7 +25,7 @@ describe('OSM building footprints', () => {
     expect(collection.features[0].properties?.render_height).toBeCloseTo(15.5);
   });
 
-  it('does not invent heights when OSM lacks height metadata', () => {
+  it('marks visual massing estimates when OSM lacks height metadata', () => {
     const response = { elements: [41, 42].map((id) => ({
       type: 'way', id, tags: { building: 'yes' }, geometry: [
         { lon: 19.8, lat: 41.3 }, { lon: 19.801, lat: 41.3 },
@@ -33,7 +33,8 @@ describe('OSM building footprints', () => {
       ],
     })) };
     const buildings = overpassBuildingsToGeoJson(response);
-    expect(buildings.features.every((feature) => feature.properties?.render_height === 0.6)).toBe(true);
-    expect(buildings.features.every((feature) => feature.properties?.height_source === 'unknown')).toBe(true);
+    expect(buildings.features.every((feature) => Number(feature.properties?.render_height) >= 8)).toBe(true);
+    expect(buildings.features.every((feature) => feature.properties?.height_source === 'estimated')).toBe(true);
+    expect(buildings.features.every((feature) => feature.properties?.height_estimated)).toBe(true);
   });
 });
