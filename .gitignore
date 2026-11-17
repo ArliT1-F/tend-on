@@ -7,3 +7,4 @@ vite.config.d.ts
 .env.*
 !.env.example
 .DS_Store
+public/data/overture/*.geojson

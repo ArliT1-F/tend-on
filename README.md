@@ -31,9 +31,22 @@ npm run preview
 
 Production preview binds to `0.0.0.0:4173`.
 
+## Preparing the Overture world blueprint
+
+The map is a geographical reference and input source, not the authoritative playable world. DEADZONE compiles source geography into a versioned `WorldBlueprint`; simulation systems will consume that normalized blueprint rather than reading rendering layers.
+
+The preferred building source is the free Overture Maps buildings theme. Install the official CLI and prepare the initial Tirana region:
+
+```bash
+pipx install overturemaps
+npm run prepare:overture
+```
+
+This writes `public/data/overture/tirana-buildings.geojson`. The game loads this prepared local dataset first and falls back to live OpenStreetMap/Overpass footprints when it is absent. Overture building data is ODbL-licensed; preserve source attribution when redistributing a derived database.
+
 ## Data attribution and status
 
-Development map rendering uses OpenFreeMap/OpenStreetMap-compatible data through a replaceable provider abstraction. This provider is explicitly marked development-only pending production licensing, usage, caching, offline, and self-hosting evaluation.
+Development map rendering uses OpenFreeMap/OpenStreetMap-compatible data through a replaceable provider abstraction. This provider is explicitly marked development-only pending production usage, caching, offline, and self-hosting evaluation.
 
 ## Known limitations
 
