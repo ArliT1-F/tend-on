@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { ErrorEvent as MapErrorEvent, Map as MlMap, MapGeoJSONFeature, MapMouseEvent } from 'maplibre-gl';
-import type { Feature, FeatureCollection, LineString, MultiLineString } from 'geojson';
+import type { Feature, FeatureCollection, LineString, MultiLineString, Polygon } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { GAME_CONFIG } from '../config/game';
 import { developmentProvider } from '../geo/provider';
@@ -10,18 +10,20 @@ import { buildingHeight, classifyBuilding } from '../geo/buildings';
 import { addTacticalBuildingExtrusion, applyTacticalMapTheme } from '../geo/mapAdapter';
 import type { InspectedFeature } from '../types/geo';
 import { buildRoadGraph } from '../geo/roadGraph';
+import { osmBuildingProvider } from '../geo/buildingGeometryProvider';
 
 interface WorldMapProps {
   onInspect: (value: InspectedFeature | null) => void;
   onReady: () => void;
   onError: (message: string) => void;
   onRoadGraph: (nodes: number, edges: number) => void;
+  onBuildingsLoaded: (count: number) => void;
 }
 
 const LOAD_TIMEOUT_MS = 12_000;
 const ERROR_GRACE_MS = 500;
 
-export function WorldMap({ onInspect, onReady, onError, onRoadGraph }: WorldMapProps) {
+export function WorldMap({ onInspect, onReady, onError, onRoadGraph, onBuildingsLoaded }: WorldMapProps) {
   const element = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
 
@@ -32,6 +34,7 @@ export function WorldMap({ onInspect, onReady, onError, onRoadGraph }: WorldMapP
     let disposed = false;
     let loadTimer: number | undefined;
     let errorTimer: number | undefined;
+    const buildingsRequest = new AbortController();
 
     const clearTimers = () => {
       if (loadTimer) window.clearTimeout(loadTimer);
@@ -91,6 +94,7 @@ export function WorldMap({ onInspect, onReady, onError, onRoadGraph }: WorldMapP
         }
         installOperationalLayers(map, region);
         onReady();
+        void loadRealBuildingFootprints(map, region, buildingsRequest.signal, onBuildingsLoaded);
         map.once('idle', () => importVisibleRoadGraph(map, onRoadGraph));
       });
 
@@ -116,11 +120,12 @@ export function WorldMap({ onInspect, onReady, onError, onRoadGraph }: WorldMapP
 
     return () => {
       disposed = true;
+      buildingsRequest.abort();
       clearTimers();
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [onError, onInspect, onReady, onRoadGraph]);
+  }, [onBuildingsLoaded, onError, onInspect, onReady, onRoadGraph]);
 
   return <div className="map" ref={element} aria-label="Interactive map of Tirana" />;
 }
@@ -131,6 +136,46 @@ function installOperationalLayers(map: MlMap, region: GeoJSON.Feature<GeoJSON.Po
   map.addLayer({ id: 'active-region-line', type: 'line', source: 'active-region', paint: { 'line-color': '#7fc493', 'line-width': 2, 'line-dasharray': [3, 2] } });
   map.addSource('fog', { type: 'geojson', data: fogMask(region) });
   map.addLayer({ id: 'simulation-fog', type: 'fill', source: 'fog', paint: { 'fill-color': '#050706', 'fill-opacity': 0.98 } });
+}
+
+async function loadRealBuildingFootprints(
+  map: MlMap,
+  region: Feature<Polygon>,
+  signal: AbortSignal,
+  report: WorldMapProps['onBuildingsLoaded'],
+) {
+  try {
+    const buildings = await osmBuildingProvider.load(region, signal);
+    if (signal.aborted || !map.getStyle()) return;
+    map.addSource('osm-building-footprints', { type: 'geojson', data: buildings });
+    map.addLayer({
+      id: 'osm-building-footprints',
+      type: 'fill',
+      source: 'osm-building-footprints',
+      paint: { 'fill-color': '#35433c', 'fill-opacity': 0.88, 'fill-outline-color': '#637269' },
+    }, 'simulation-fog');
+    map.addLayer({
+      id: 'osm-building-extrusions',
+      type: 'fill-extrusion',
+      source: 'osm-building-footprints',
+      minzoom: 13,
+      paint: {
+        'fill-extrusion-color': [
+          'interpolate', ['linear'], ['get', 'render_height'],
+          4, '#29342f',
+          15, '#3b4942',
+          45, '#53625a',
+        ],
+        'fill-extrusion-height': ['get', 'render_height'],
+        'fill-extrusion-base': 0,
+        'fill-extrusion-opacity': 0.92,
+      },
+    }, 'simulation-fog');
+    report(buildings.features.length);
+  } catch (error) {
+    if (!signal.aborted) console.warn('Could not load real OSM building footprints', error);
+    report(0);
+  }
 }
 
 function importVisibleRoadGraph(map: MlMap, report: WorldMapProps['onRoadGraph']) {

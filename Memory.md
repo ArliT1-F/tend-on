@@ -29,7 +29,9 @@ The repository began with only `Master-Prompt.md`. A React + TypeScript + Vite a
 - Provider abstraction: `src/geo/provider.ts`.
 - Region + inverse fog geometry: `src/geo/region.ts`.
 - OSM metadata classification and height estimation: `src/geo/buildings.ts`.
-- Provider-safe vector building layer discovery and tactical 2.5D extrusion: `src/geo/mapAdapter.ts`.
+- Explicit real OSM footprint retrieval: `src/geo/osmBuildings.ts` queries the 2 × 2 km operational bounds through redundant Overpass endpoints and converts building ways to GeoJSON. Accuracy policy is strict: use physical `height`, then `building:levels`; otherwise render only a 0.6 m footprint and mark height `unknown` rather than inventing a skyline.
+- Provider-safe vector building layer discovery and tactical 2.5D extrusion: `src/geo/mapAdapter.ts`. Explicit Overpass footprints are rendered as selectable extrusions even when the base map has degraded to raster.
+- Hybrid building-data architecture: `src/geo/buildingGeometryProvider.ts` defines capabilities and validation for future licensed photogrammetry/LiDAR adapters. OSM is correctly declared as community metadata and does not claim satellite-grade measured heights. A licensed provider and its credentials/data terms are still required for broadly accurate real-world heights.
 - Geographic road graph construction and A* routing with one-way/blocked-edge support: `src/geo/roadGraph.ts`. Visible vector road features are imported after the map becomes idle and graph counts are reported in the sector panel.
 - Tactical map theming strips labels, POIs, tree markers, decorative circles, and unrelated linework; it preserves dark ground/water, roads, boundaries, and buildings. Outside the 2 × 2 km operational sector is nearly opaque.
 - Unit tests: building metadata, provider adaptation, road graph/routing, and region/fog geometry.
@@ -52,7 +54,7 @@ Phase 1 still needs:
 
 1. Make visible-road imports incrementally refresh as the operational region changes; the first live provider import now runs once after initial map idle.
 2. Add robust offline states and geographic cache boundaries. Provider fallback and retry exist, but no offline tile cache exists.
-3. Add explicit building footprint persistence, durable IDs, classification correction, and local caching. Current inspection and 2.5D extrusion read vector-tile features.
+3. Add building footprint persistence, manual classification correction, and local caching. Explicit Overpass footprints now carry durable `way/<id>` identifiers and render independently of the base-map provider.
 5. Add map interaction tests and performance measurements on the reference Intel HD 4400 hardware.
 6. Replace web-loaded Google fonts with local/system assets for reliable offline play.
 7. Make fog/active cells data-driven rather than one static opening polygon before Phase 2.
