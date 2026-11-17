@@ -11,6 +11,7 @@ import { addTacticalBuildingExtrusion, applyTacticalMapTheme } from '../geo/mapA
 import type { InspectedFeature } from '../types/geo';
 import { buildRoadGraph } from '../geo/roadGraph';
 import { osmBuildingProvider } from '../geo/buildingGeometryProvider';
+import { buildingColorExpression, buildingHeightExpression, roofBaseExpression, roofHeightExpression } from '../geo/buildingMassingStyle';
 
 interface WorldMapProps {
   onInspect: (value: InspectedFeature | null) => void;
@@ -55,8 +56,8 @@ export function WorldMap({ onInspect, onReady, onError, onRoadGraph, onBuildings
           style: developmentProvider.styles[providerIndex],
           center: GAME_CONFIG.startingLocation.center,
           zoom: GAME_CONFIG.initialZoom,
-          pitch: 42,
-          bearing: -8,
+          pitch: 52,
+          bearing: -12,
           attributionControl: false,
         });
       } catch (error) {
@@ -148,27 +149,45 @@ async function loadRealBuildingFootprints(
     const buildings = await osmBuildingProvider.load(region, signal);
     if (signal.aborted || !map.getStyle()) return;
     map.addSource('osm-building-footprints', { type: 'geojson', data: buildings });
+    // Avoid z-fighting with a provider's generic building layer once the explicit
+    // real-footprint massing model is available.
+    if (map.getLayer('deadzone-building-extrusion')) {
+      map.setLayoutProperty('deadzone-building-extrusion', 'visibility', 'none');
+    }
     map.addLayer({
       id: 'osm-building-footprints',
       type: 'fill',
       source: 'osm-building-footprints',
-      paint: { 'fill-color': '#35433c', 'fill-opacity': 0.88, 'fill-outline-color': '#637269' },
+      paint: {
+        'fill-color': '#202a25',
+        'fill-opacity': 0.94,
+        'fill-outline-color': '#718078',
+      },
     }, 'simulation-fog');
     map.addLayer({
-      id: 'osm-building-extrusions',
+      id: 'osm-building-walls',
       type: 'fill-extrusion',
       source: 'osm-building-footprints',
       minzoom: 13,
       paint: {
-        'fill-extrusion-color': [
-          'interpolate', ['linear'], ['get', 'render_height'],
-          4, '#29342f',
-          15, '#3b4942',
-          45, '#53625a',
-        ],
-        'fill-extrusion-height': ['get', 'render_height'],
+        'fill-extrusion-color': buildingColorExpression(-8),
+        'fill-extrusion-height': buildingHeightExpression,
         'fill-extrusion-base': 0,
-        'fill-extrusion-opacity': 0.92,
+        'fill-extrusion-opacity': 0.97,
+        'fill-extrusion-vertical-gradient': true,
+      },
+    }, 'simulation-fog');
+    map.addLayer({
+      id: 'osm-building-roofs',
+      type: 'fill-extrusion',
+      source: 'osm-building-footprints',
+      minzoom: 13,
+      paint: {
+        'fill-extrusion-color': buildingColorExpression(18),
+        'fill-extrusion-height': roofHeightExpression,
+        'fill-extrusion-base': roofBaseExpression,
+        'fill-extrusion-opacity': 1,
+        'fill-extrusion-vertical-gradient': false,
       },
     }, 'simulation-fog');
     report(buildings.features.length);
