@@ -1,24 +1,27 @@
 import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { ErrorEvent as MapErrorEvent, Map as MlMap, MapGeoJSONFeature, MapMouseEvent } from 'maplibre-gl';
+import type { Feature, FeatureCollection, LineString, MultiLineString } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { GAME_CONFIG } from '../config/game';
 import { developmentProvider } from '../geo/provider';
 import { fogMask, squareRegion } from '../geo/region';
 import { buildingHeight, classifyBuilding } from '../geo/buildings';
-import { addTacticalBuildingExtrusion } from '../geo/mapAdapter';
+import { addTacticalBuildingExtrusion, applyTacticalMapTheme } from '../geo/mapAdapter';
 import type { InspectedFeature } from '../types/geo';
+import { buildRoadGraph } from '../geo/roadGraph';
 
 interface WorldMapProps {
   onInspect: (value: InspectedFeature | null) => void;
   onReady: () => void;
   onError: (message: string) => void;
+  onRoadGraph: (nodes: number, edges: number) => void;
 }
 
 const LOAD_TIMEOUT_MS = 12_000;
 const ERROR_GRACE_MS = 500;
 
-export function WorldMap({ onInspect, onReady, onError }: WorldMapProps) {
+export function WorldMap({ onInspect, onReady, onError, onRoadGraph }: WorldMapProps) {
   const element = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
 
@@ -79,9 +82,11 @@ export function WorldMap({ onInspect, onReady, onError }: WorldMapProps) {
       map.on('load', () => {
         loaded = true;
         clearTimers();
+        applyTacticalMapTheme(map);
         addTacticalBuildingExtrusion(map);
         installOperationalLayers(map, region);
         onReady();
+        map.once('idle', () => importVisibleRoadGraph(map, onRoadGraph));
       });
 
       map.on('click', (event: MapMouseEvent) => inspectFeature(map, event, onInspect));
@@ -110,7 +115,7 @@ export function WorldMap({ onInspect, onReady, onError }: WorldMapProps) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [onError, onInspect, onReady]);
+  }, [onError, onInspect, onReady, onRoadGraph]);
 
   return <div className="map" ref={element} aria-label="Interactive map of Tirana" />;
 }
@@ -120,7 +125,42 @@ function installOperationalLayers(map: MlMap, region: GeoJSON.Feature<GeoJSON.Po
   map.addLayer({ id: 'active-region-fill', type: 'fill', source: 'active-region', paint: { 'fill-color': '#4f8c63', 'fill-opacity': 0.06 } });
   map.addLayer({ id: 'active-region-line', type: 'line', source: 'active-region', paint: { 'line-color': '#7fc493', 'line-width': 2, 'line-dasharray': [3, 2] } });
   map.addSource('fog', { type: 'geojson', data: fogMask(region) });
-  map.addLayer({ id: 'simulation-fog', type: 'fill', source: 'fog', paint: { 'fill-color': '#050706', 'fill-opacity': 0.82 } });
+  map.addLayer({ id: 'simulation-fog', type: 'fill', source: 'fog', paint: { 'fill-color': '#050706', 'fill-opacity': 0.98 } });
+}
+
+function importVisibleRoadGraph(map: MlMap, report: WorldMapProps['onRoadGraph']) {
+  const style = map.getStyle();
+  const sourceLayers = new Map<string, Set<string>>();
+  for (const layer of style.layers ?? []) {
+    if (!('source' in layer) || !('source-layer' in layer)) continue;
+    const identity = `${layer.id} ${layer['source-layer']}`.toLowerCase();
+    if (!identity.includes('road') && !identity.includes('transportation') && !identity.includes('street')) continue;
+    const source = String(layer.source);
+    const layers = sourceLayers.get(source) ?? new Set<string>();
+    layers.add(String(layer['source-layer']));
+    sourceLayers.set(source, layers);
+  }
+
+  const features: Array<Feature<LineString | MultiLineString>> = [];
+  const seen = new Set<string>();
+  for (const [source, layers] of sourceLayers) {
+    for (const sourceLayer of layers) {
+      for (const feature of map.querySourceFeatures(source, { sourceLayer })) {
+        if (feature.geometry.type !== 'LineString' && feature.geometry.type !== 'MultiLineString') continue;
+        const key = `${sourceLayer}:${feature.id ?? JSON.stringify(feature.geometry.coordinates)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        features.push({
+          type: 'Feature',
+          id: feature.id,
+          properties: feature.properties ?? {},
+          geometry: feature.geometry,
+        });
+      }
+    }
+  }
+  const graph = buildRoadGraph({ type: 'FeatureCollection', features } as FeatureCollection<LineString | MultiLineString>);
+  report(graph.nodes.size, graph.edges.size);
 }
 
 function inspectFeature(map: MlMap, event: MapMouseEvent, onInspect: WorldMapProps['onInspect']) {

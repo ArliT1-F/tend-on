@@ -38,7 +38,9 @@ export const osmRasterFallback: StyleSpecification = {
 
 export const developmentProvider: MapProvider = {
   id: 'openfreemap',
-  styles: [GAME_CONFIG.map.styleUrl, osmRasterFallback],
+  // Retry the vector source before degrading to raster. Transient style/sprite
+  // failures are common on slow home links and raster cannot expose buildings.
+  styles: [GAME_CONFIG.map.styleUrl, GAME_CONFIG.map.styleUrl, GAME_CONFIG.map.styleUrl, osmRasterFallback],
   attribution: '© OpenStreetMap contributors · OpenFreeMap',
   productionReady: false,
 };
