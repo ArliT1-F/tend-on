@@ -32,6 +32,11 @@ export function WorldMap({ onInspect, onReady, onError, onRoadGraph, onBuildings
     if (!element.current || mapRef.current) return;
 
     const region = squareRegion(GAME_CONFIG.startingLocation.center, GAME_CONFIG.initialRegionSizeMeters);
+    const ring = region.geometry.coordinates[0];
+    const operationalBounds: [[number, number], [number, number]] = [
+      [Math.min(...ring.map(([longitude]) => longitude)), Math.min(...ring.map(([, latitude]) => latitude))],
+      [Math.max(...ring.map(([longitude]) => longitude)), Math.max(...ring.map(([, latitude]) => latitude))],
+    ];
     let disposed = false;
     let loadTimer: number | undefined;
     let errorTimer: number | undefined;
@@ -58,6 +63,8 @@ export function WorldMap({ onInspect, onReady, onError, onRoadGraph, onBuildings
           zoom: GAME_CONFIG.initialZoom,
           pitch: 52,
           bearing: -12,
+          maxBounds: operationalBounds,
+          minZoom: 13.5,
           attributionControl: false,
         });
       } catch (error) {

@@ -17,6 +17,7 @@ The repository began with only `Master-Prompt.md`. A React + TypeScript + Vite a
 - Gameplay values begin in `src/config/game.ts`; do not scatter balancing values through components.
 - `src/geo/provider.ts` is the map-source seam. Current OpenFreeMap configuration is **development-only**, deliberately marked `productionReady: false`. Evaluate licensing, offline caching, limits, and self-hosting before production.
 - Geographic state uses longitude/latitude GeoJSON, never screen coordinates.
+- The camera is constrained to the initial active 2 × 2 km region during Phase 1. Panning to London/Washington previously showed no buildings because only Tirana was activated and fetched; global travel belongs to reconnaissance/expansion phases.
 - The operational region source and visual fog source are distinct, anticipating simulation activation as authoritative state.
 - Bottom navigation items for future systems are visibly disabled rather than fake buttons.
 - Desktop and mobile layouts are present from the start.
@@ -29,7 +30,7 @@ The repository began with only `Master-Prompt.md`. A React + TypeScript + Vite a
 - Provider abstraction: `src/geo/provider.ts`.
 - Region + inverse fog geometry: `src/geo/region.ts`.
 - OSM metadata classification and height estimation: `src/geo/buildings.ts`.
-- Explicit real OSM footprint retrieval: `src/geo/osmBuildings.ts` queries the 2 × 2 km operational bounds through redundant Overpass endpoints and converts building ways to GeoJSON. Accuracy policy is strict: use physical `height`, then `building:levels`; otherwise render only a 0.6 m footprint and mark height `unknown` rather than inventing a skyline.
+- Explicit real OSM footprint retrieval: `src/geo/osmBuildings.ts` queries the 2 × 2 km operational bounds through redundant Overpass endpoints and converts building ways to GeoJSON. Requests use no-preflight GET plus a 15-second per-mirror timeout. Height priority is physical `height`, then `building:levels`; absent vertical metadata receives a clearly tagged `estimated` visual-massing height for readability. Estimated height must never drive authoritative line-of-sight or rooftop rules.
 - Provider-safe vector building layer discovery and tactical 2.5D extrusion: `src/geo/mapAdapter.ts`. Explicit Overpass footprints are rendered as selectable city-builder-style massing even when the base map has degraded to raster. `src/geo/buildingMassingStyle.ts` supplies muted class-based wall colors, vertical shading, thin lighter roof caps, and true source-driven heights. The camera uses a stronger 52° pitch. This is intentionally stylized rendering over real geometry, not fabricated geometry.
 - Hybrid building-data architecture: `src/geo/buildingGeometryProvider.ts` defines capabilities and validation for future licensed photogrammetry/LiDAR adapters. OSM is correctly declared as community metadata and does not claim satellite-grade measured heights. A licensed provider and its credentials/data terms are still required for broadly accurate real-world heights.
 - Geographic road graph construction and A* routing with one-way/blocked-edge support: `src/geo/roadGraph.ts`. Visible vector road features are imported after the map becomes idle and graph counts are reported in the sector panel.

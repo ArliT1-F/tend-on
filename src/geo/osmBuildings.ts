@@ -31,11 +31,12 @@ export async function fetchOsmBuildings(region: Feature<Polygon>, signal?: Abort
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-        body: new URLSearchParams({ data: query }),
-        signal,
+      const timeout = AbortSignal.timeout(15_000);
+      const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+      // GET avoids CORS preflight failures seen with some Overpass mirrors.
+      const response = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`, {
+        method: 'GET',
+        signal: requestSignal,
       });
       if (!response.ok) throw new Error(`Building provider returned HTTP ${response.status}`);
       return overpassBuildingsToGeoJson(await response.json() as OverpassResponse);
@@ -61,7 +62,12 @@ export function overpassBuildingsToGeoJson(response: OverpassResponse): FeatureC
     // floor height. Unknown buildings remain low footprints until a licensed 3D
     // provider supplies measured geometry.
     const resolvedHeight = buildingHeight(tags, 0);
-    const renderHeight = resolvedHeight.source === 'unknown' ? 0.6 : resolvedHeight.height;
+    // Hybrid mode keeps the city readable when OSM has no vertical metadata. The
+    // value is explicitly tagged as an estimate and must never be used as an
+    // authoritative simulation/line-of-sight height.
+    const visualEstimate = estimatedMassingHeight(element.id, classifyBuilding(tags));
+    const renderHeight = resolvedHeight.source === 'unknown' ? visualEstimate : resolvedHeight.height;
+    const heightSource = resolvedHeight.source === 'unknown' ? 'estimated' : resolvedHeight.source;
     features.push({
       type: 'Feature',
       id: element.id,
@@ -69,13 +75,28 @@ export function overpassBuildingsToGeoJson(response: OverpassResponse): FeatureC
         ...tags,
         classification: classifyBuilding(tags),
         render_height: renderHeight,
-        height_estimated: resolvedHeight.estimated,
-        height_source: resolvedHeight.source,
+        height_estimated: heightSource === 'estimated',
+        height_source: heightSource,
         resolved_levels: resolvedHeight.levels ?? null,
       },
       geometry: { type: 'Polygon', coordinates: [coordinates] },
     });
   }
   return { type: 'FeatureCollection', features };
+}
+
+function estimatedMassingHeight(id: number, classification: string) {
+  const baseByClass: Record<string, number> = {
+    residential: 9,
+    commercial: 11,
+    office: 14,
+    industrial: 7,
+    warehouse: 6,
+    hospital: 12,
+    hotel: 15,
+    government: 13,
+    religious: 10,
+  };
+  return (baseByClass[classification] ?? 8) + (Math.abs(id) % 3) * 3;
 }
 

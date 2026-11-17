@@ -20,6 +20,10 @@ export function classifyBuilding(properties: Record<string, unknown>): BuildingC
 export function buildingHeight(properties: Record<string, unknown>, fallback = 10, floorHeight = 3.1): BuildingHeight {
   const declaredSource = properties.height_source;
   if (declaredSource === 'unknown') return { height: 0, estimated: false, source: 'unknown' };
+  if (declaredSource === 'estimated') {
+    const visualHeight = parsePositiveNumber(properties.render_height);
+    return { height: visualHeight ?? fallback, estimated: true, source: 'estimated' };
+  }
   if (declaredSource === 'levels') {
     const resolved = parsePositiveNumber(properties.render_height);
     const levels = parsePositiveNumber(properties.resolved_levels);
