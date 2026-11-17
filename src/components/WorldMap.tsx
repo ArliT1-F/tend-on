@@ -1,0 +1,12 @@
+import {useEffect,useRef} from 'react';
+import * as maplibregl from 'maplibre-gl';
+import type {Map as MlMap, MapGeoJSONFeature, MapMouseEvent} from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import {GAME_CONFIG} from '../config/game'; import {developmentProvider} from '../geo/provider'; import {fogMask,squareRegion} from '../geo/region'; import {buildingHeight,classifyBuilding} from '../geo/buildings'; import type {InspectedFeature} from '../types/geo';
+export function WorldMap({onInspect,onReady}:{onInspect:(v:InspectedFeature|null)=>void;onReady:()=>void}){const el=useRef<HTMLDivElement>(null);const mapRef=useRef<MlMap|null>(null);
+useEffect(()=>{if(!el.current||mapRef.current)return;const region=squareRegion(GAME_CONFIG.startingLocation.center,GAME_CONFIG.initialRegionSizeMeters);const map=new maplibregl.Map({container:el.current,style:developmentProvider.styleUrl,center:GAME_CONFIG.startingLocation.center,zoom:GAME_CONFIG.initialZoom,pitch:42,bearing:-8,attributionControl:false});mapRef.current=map;
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
+map.on('load',()=>{map.addSource('active-region',{type:'geojson',data:region});map.addLayer({id:'active-region-fill',type:'fill',source:'active-region',paint:{'fill-color':'#4f8c63','fill-opacity':0.06}});map.addLayer({id:'active-region-line',type:'line',source:'active-region',paint:{'line-color':'#7fc493','line-width':2,'line-dasharray':[3,2]}});map.addSource('fog',{type:'geojson',data:fogMask(region)});map.addLayer({id:'simulation-fog',type:'fill',source:'fog',paint:{'fill-color':'#050706','fill-opacity':0.82}});onReady()});
+map.on('click',(e:MapMouseEvent)=>{const features=map.queryRenderedFeatures(e.point);const f=features.find((x:MapGeoJSONFeature)=>isBuilding(x));if(!f){onInspect(null);return}const p=f.properties??{};const h=buildingHeight(p,GAME_CONFIG.building.fallbackHeight,GAME_CONFIG.building.floorHeight);onInspect({id:String(f.id??p.id??'unknown'),name:String(p.name??'Unnamed structure'),classification:classifyBuilding(p),height:h.height,heightEstimated:h.estimated,properties:p})});
+return()=>{map.remove();mapRef.current=null}},[onInspect,onReady]);return <div className="map" ref={el} aria-label="Interactive map of Tirana"/>}
+function isBuilding(f:MapGeoJSONFeature){const p=f.properties??{};return Boolean(p.building)||f.layer.id.toLowerCase().includes('building')}

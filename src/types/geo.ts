@@ -1,0 +1,2 @@
+export type BuildingClass = 'residential'|'commercial'|'office'|'industrial'|'warehouse'|'hospital'|'police'|'fire_station'|'school'|'university'|'hotel'|'bank'|'supermarket'|'pharmacy'|'fuel_station'|'military'|'government'|'religious'|'other';
+export interface InspectedFeature { id: string; name: string; classification: BuildingClass; height: number; heightEstimated: boolean; properties: Record<string, unknown>; }
