@@ -23,6 +23,49 @@ export function detectBuildingLayer(style: StyleSpecification): BuildingLayerDes
     : null;
 }
 
+export type TacticalLayerRole = 'building' | 'road' | 'water' | 'ground' | 'boundary' | 'hidden';
+
+export function tacticalLayerRole(layer: LayerSpecification): TacticalLayerRole {
+  const id = layer.id.toLowerCase();
+  const sourceLayer = 'source-layer' in layer ? String(layer['source-layer']).toLowerCase() : '';
+  const identity = `${id} ${sourceLayer}`;
+  if (isBuildingLayer(layer)) return 'building';
+  if (identity.includes('transportation') || identity.includes('road') || identity.includes('street')) return 'road';
+  if (identity.includes('water')) return 'water';
+  if (identity.includes('boundary')) return 'boundary';
+  if (layer.type === 'background' || layer.type === 'fill') return 'ground';
+  return 'hidden';
+}
+
+export function applyTacticalMapTheme(map: MlMap) {
+  for (const layer of map.getStyle().layers ?? []) {
+    const role = tacticalLayerRole(layer);
+    if (layer.type === 'symbol' || layer.type === 'circle' || role === 'hidden') {
+      map.setLayoutProperty(layer.id, 'visibility', 'none');
+      continue;
+    }
+    if (layer.type === 'background') map.setPaintProperty(layer.id, 'background-color', '#0b100e');
+    if (layer.type === 'fill') {
+      map.setPaintProperty(layer.id, 'fill-color', role === 'water' ? '#101d20' : role === 'building' ? '#29332e' : '#111713');
+      map.setPaintProperty(layer.id, 'fill-opacity', role === 'building' ? 0.9 : 1);
+      map.setPaintProperty(layer.id, 'fill-outline-color', role === 'building' ? '#46534c' : '#171e1a');
+    }
+    if (layer.type === 'line') {
+      if (role !== 'road' && role !== 'boundary') {
+        map.setLayoutProperty(layer.id, 'visibility', 'none');
+      } else {
+        map.setPaintProperty(layer.id, 'line-color', role === 'road' ? '#39443f' : '#25302b');
+        map.setPaintProperty(layer.id, 'line-opacity', role === 'road' ? 0.82 : 0.35);
+      }
+    }
+    if (layer.type === 'raster') {
+      map.setPaintProperty(layer.id, 'raster-saturation', -1);
+      map.setPaintProperty(layer.id, 'raster-contrast', 0.35);
+      map.setPaintProperty(layer.id, 'raster-brightness-max', 0.48);
+    }
+  }
+}
+
 export function addTacticalBuildingExtrusion(map: MlMap) {
   if (map.getLayer('deadzone-building-extrusion')) return true;
   const building = detectBuildingLayer(map.getStyle());

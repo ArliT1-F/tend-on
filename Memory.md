@@ -5,7 +5,7 @@
 ## Current state — 2026-11-17
 
 **Active milestone:** Phase 1 — Foundation and geographical rendering  
-**Status:** First runnable vertical slice complete; Phase 1 is not yet complete.
+**Status:** Advanced runnable vertical slice; Phase 1 is not yet complete because durable geographic caching and performance validation remain.
 
 The repository began with only `Master-Prompt.md`. A React + TypeScript + Vite application now provides a dark tactical interface and an interactive MapLibre map centered on Tirana. The starting operational region is a real-coordinate 2 × 2 km polygon. A true inverse polygon visually fogs everything outside it. Rendered building features can be selected and their source metadata is normalized into a classification and measured/estimated height.
 
@@ -30,7 +30,8 @@ The repository began with only `Master-Prompt.md`. A React + TypeScript + Vite a
 - Region + inverse fog geometry: `src/geo/region.ts`.
 - OSM metadata classification and height estimation: `src/geo/buildings.ts`.
 - Provider-safe vector building layer discovery and tactical 2.5D extrusion: `src/geo/mapAdapter.ts`.
-- Geographic road graph construction and A* routing with one-way/blocked-edge support: `src/geo/roadGraph.ts`.
+- Geographic road graph construction and A* routing with one-way/blocked-edge support: `src/geo/roadGraph.ts`. Visible vector road features are imported after the map becomes idle and graph counts are reported in the sector panel.
+- Tactical map theming strips labels, POIs, tree markers, decorative circles, and unrelated linework; it preserves dark ground/water, roads, boundaries, and buildings. Outside the 2 × 2 km operational sector is nearly opaque.
 - Unit tests: building metadata, provider adaptation, road graph/routing, and region/fog geometry.
 
 ## Verification
@@ -49,9 +50,9 @@ There is a build warning because MapLibre creates a large client chunk (~1.29 MB
 
 Phase 1 still needs:
 
-1. Connect the road graph importer to progressively loaded provider road features. The graph and A* routing core are implemented and tested, but the live base-map road data is not imported yet.
+1. Make visible-road imports incrementally refresh as the operational region changes; the first live provider import now runs once after initial map idle.
 2. Add robust offline states and geographic cache boundaries. Provider fallback and retry exist, but no offline tile cache exists.
-3. Add explicit building footprint retrieval, durable IDs, classification correction, and local caching. Current inspection and 2.5D extrusion read rendered vector-tile features.
+3. Add explicit building footprint persistence, durable IDs, classification correction, and local caching. Current inspection and 2.5D extrusion read vector-tile features.
 5. Add map interaction tests and performance measurements on the reference Intel HD 4400 hardware.
 6. Replace web-loaded Google fonts with local/system assets for reliable offline play.
 7. Make fog/active cells data-driven rather than one static opening polygon before Phase 2.
@@ -61,8 +62,8 @@ Do not claim the entire Phase 1 deliverable complete until roads are represented
 
 ## Next recommended work order
 
-1. Connect provider road source layers to the tested road-graph importer and expose a debug graph overlay/count.
-2. Introduce tiled geographic data loading and a bounded IndexedDB cache.
+1. Introduce tiled geographic data loading and a bounded IndexedDB cache.
+2. Persist normalized building footprints and road graph chunks with durable geographical IDs.
 3. Add deterministic campaign seed and versioned campaign schema before autonomous entities.
 4. Benchmark building extrusion and graph construction on the reference hardware.
 5. Begin Phase 2 only after Phase 1 acceptance checks are reproducible.
