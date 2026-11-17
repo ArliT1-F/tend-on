@@ -9,6 +9,8 @@
 
 The repository began with only `Master-Prompt.md`. A React + TypeScript + Vite application now provides a dark tactical interface and an interactive MapLibre map centered on Tirana. The starting operational region is a real-coordinate 2 × 2 km polygon. A true inverse polygon visually fogs everything outside it. Rendered building features can be selected and their source metadata is normalized into a classification and measured/estimated height.
 
+**Map loading fix:** the original provider URL requested a nonexistent OpenFreeMap `dark` style, leaving the UI stuck because only the success event was handled. It now uses the published `liberty` style and handles startup exceptions, provider errors, a 15-second timeout, and user-driven retry. Keep this failure path when changing providers.
+
 ## Architecture decisions
 
 - Rendering and geography utilities are separate. `WorldMap` renders; `src/geo` owns geographic/provider logic.
