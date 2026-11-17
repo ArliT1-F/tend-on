@@ -83,7 +83,12 @@ export function WorldMap({ onInspect, onReady, onError, onRoadGraph }: WorldMapP
         loaded = true;
         clearTimers();
         applyTacticalMapTheme(map);
-        addTacticalBuildingExtrusion(map);
+        try {
+          addTacticalBuildingExtrusion(map);
+        } catch (error) {
+          // Buildings remain as provider footprints if extrusion is unsupported.
+          console.warn('Could not add tactical building extrusion', error);
+        }
         installOperationalLayers(map, region);
         onReady();
         map.once('idle', () => importVisibleRoadGraph(map, onRoadGraph));
