@@ -10,7 +10,7 @@ import { buildingHeight, classifyBuilding } from '../geo/buildings';
 import { addTacticalBuildingExtrusion, applyTacticalMapTheme } from '../geo/mapAdapter';
 import type { InspectedFeature } from '../types/geo';
 import { buildRoadGraph } from '../geo/roadGraph';
-import { osmBuildingProvider } from '../geo/buildingGeometryProvider';
+import { loadInitialWorldBlueprint } from '../world/loadBlueprint';
 import { buildingColorExpression, buildingHeightExpression, roofBaseExpression, roofHeightExpression } from '../geo/buildingMassingStyle';
 
 interface WorldMapProps {
@@ -153,7 +153,8 @@ async function loadRealBuildingFootprints(
   report: WorldMapProps['onBuildingsLoaded'],
 ) {
   try {
-    const buildings = await osmBuildingProvider.load(region, signal);
+    const blueprint = await loadInitialWorldBlueprint(region, signal);
+    const buildings = blueprint.buildings;
     if (signal.aborted || !map.getStyle()) return;
     map.addSource('osm-building-footprints', { type: 'geojson', data: buildings });
     // Avoid z-fighting with a provider's generic building layer once the explicit
